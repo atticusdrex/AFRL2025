@@ -1,3 +1,8 @@
+'''
+Data acquisition file for multi-fidelity modeling completed during graduate research internship in summer, 2025. 
+-------------------------------------------
+Author: Atticus Rex
+'''
 from util import *
 
 # Function to compute a single laminar flame speed value 

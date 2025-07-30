@@ -1,3 +1,10 @@
+'''
+Utility file for multi-fidelity modeling completed during graduate research internship in summer, 2025. 
+-------------------------------------------
+Author: Atticus Rex
+'''
+
+
 import jax 
 import jax.numpy as jnp 
 from jax import vmap 
