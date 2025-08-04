@@ -17,6 +17,15 @@ import matplotlib.pyplot as plt
 import pickle
 import cantera 
 from concurrent.futures import ProcessPoolExecutor, as_completed
+from scipy.interpolate import griddata
+
+
+# Plot parameters 
+plt.rcParams.update({
+    "font.family": "georgia",
+    'text.latex.preamble': r'\\usepackage{amsmath}',
+    'mathtext.fontset': 'cm',
+})
 
 
 # For performing kernel matrix operations 
@@ -134,11 +143,31 @@ def ADAM(
 
 
 # Radial basis function kernel 
+def laplace(x,y,kernel_params, epsilon = 1e-8):
+    assert x.shape[0] == y.shape[0], 'Input vectors have mismatched dimensions!'
+    assert kernel_params.shape[0] == x.shape[0]+1, 'Kernel parameters are wrong dimension! '
+    h = (x-y).ravel()
+    return kernel_params[0]*jnp.exp(-jnp.sum(jnp.abs(h) / (jnp.abs(kernel_params[1:])+epsilon)))
+
+# Radial basis function kernel 
 def rbf(x,y,kernel_params, epsilon = 1e-8):
     assert x.shape[0] == y.shape[0], 'Input vectors have mismatched dimensions!'
     assert kernel_params.shape[0] == x.shape[0]+1, 'Kernel parameters are wrong dimension! '
     h = (x-y).ravel()
     return kernel_params[0]*jnp.exp(-jnp.sum(h**2 / (jnp.abs(kernel_params[1:])+epsilon)))
+
+def lr_rbf(x,y,kernel_params, rank=6,epsilon = 1e-5):
+    assert x.shape[0] == y.shape[0], 'Input vectors have mismatched dimensions!'
+    assert kernel_params.shape[0] == x.shape[0]*rank + 1
+
+    scalar = kernel_params[0]
+    L = kernel_params[1:].reshape(x.shape[0],rank)
+
+    C = L @ L.T + epsilon * jnp.eye(L.shape[0])
+
+    h = (x-y).ravel()
+
+    return scalar * jnp.exp(-h.T @ C @ h)
 
 class SimpleGP:
     def __init__(self, X, Y, kernel, kernel_dim, noise_var = 1e-6, jitter=1e-6):
@@ -169,6 +198,18 @@ class SimpleGP:
         Ymu = Ktest @ cho_solve((L, True), self.Y)
         Ycov = Ktestvar - Ktest @ cho_solve((L, True), Ktest.T)
         return Ymu, Ycov
+
+    def mean(self, Xtest):
+        # Unpack necessary parameters 
+        noise_var, k_param = self.p['noise_var'], self.p['k_param']
+        # Compute kernel matrices
+        Ktrain = K(self.X, self.X, self.kernel, k_param) + (noise_var + self.jitter)* jnp.eye(self.X.shape[0])
+        Ktest = K(Xtest, self.X, self.kernel, k_param)
+        # Cholesky and GP predictive mean
+        L = cholesky(Ktrain)
+        # Compute posterior mean 
+        return Ktest @ cho_solve((L, True), self.Y)
+
     
     # For computing the log-evidence term of a single GP 
     def objective(self, p):
