@@ -3,3 +3,5 @@ data/cbfh_LES_dx0p177mm_velocity.dat
 data/cbfh_LES_dx0p250mm_velocity.dat
 data/cbfh_LES_dx0p500mm_velocity.dat
 data/cbfh_RANS_velocity.dat
+PaperPlots.ipynb
+HFData.png
